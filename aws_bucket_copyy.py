@@ -12,7 +12,8 @@ import boto3
 
 parser = argparse.ArgumentParser(
                     prog='aws_bucket_copyy.py',
-                    description='This script will take a AWS Batch Operations manifest file and copy the file from the source bucket to the destination bucket.',
+                    description='This script will take a AWS Batch Operations manifest file and copy the file from the source bucket to the destination bucket.\n\
+                        This only works for ONE BUCKET AT A TIME.',
                     )
 
 parser.add_argument( '-f', '--filename', help='The AWS file from the Batch Operations protocol.\n\
@@ -47,14 +48,23 @@ destination_bucket=bucket_dict.get(source_bucket)
 
 file_list=df_bucket[1].unique().tolist()
 
+#Create a destination object path based on the concatenation of the destination bucket and the existing directory for the file from the source bucket
+destination_components= destination_bucket.rstrip('/').split("/")
+destination_bucket=destination_components[0]
+destination_path="/".join(destination_components[1:])
+
 # Create a Boto3 S3 client
 s3_client = boto3.client('s3')
 
 for file in file_list:
     # Construct the source and destination object paths
     source_object = {'Bucket': source_bucket, 'Key': file}
-    #destination_object = {'Bucket': new_bucket, 'Key': file}
+    
+    #for each file create a new file path, and make sure it doesn't have an accidental '/' at the beginning.
+    file_new= destination_path + "/" + file
+    if file_new[0]=='/':
+        file_new=file_new[1:]
     
     # Copy the object to the destination bucket
-    s3_client.copy(CopySource=source_object, Bucket=destination_bucket, Key=file)
+    s3_client.copy(CopySource=source_object, Bucket=destination_bucket, Key=file_new)
     print(f"Moved file: {file}")
