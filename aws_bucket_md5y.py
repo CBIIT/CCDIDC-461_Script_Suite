@@ -147,8 +147,19 @@ for manifest in manifest_list:
         #delete the file in the md5sum folder
         delete_file(file_path)
 
+        #Manipulate so that destination bucket is the base bucket, but add the initial sub-directory onto the file.
+        #Create a destination object path based on the concatenation of the destination bucket and the existing directory for the file from the source bucket
+        destination_components= destination_bucket.rstrip('/').split("/")
+        destination_bucket_base=destination_components[0]
+        destination_path="/".join(destination_components[1:])
+
+        #for each file create a new file path, and make sure it doesn't have an accidental '/' at the beginning.
+        file_new= destination_path + "/" + file
+        if file_new[0]=='/':
+            file_new=file_new[1:]
+
         #Download the file from the destination bucket and find the md5sum and output
-        s3_client.download_file(destination_bucket, file, file_path, Config=config)
+        s3_client.download_file(destination_bucket_base, file_new, file_path, Config=config)
 
         #find m5sum
         destination_md5sum = calculate_md5(file_path)
