@@ -70,8 +70,11 @@ args = parser.parse_args()
 
 #pull in args as variables
 file_path=args.filename
+file_path=os.path.abspath(file_path)
 directory_path=args.directory
+directory_path=os.path.abspath(directory_path)
 template_path=args.template
+template_path=os.path.abspath(template_path)
 
 #Take template and create dictionary of old : new bucket pairings.
 df_temp=pd.read_csv(template_path, sep ='\t')
