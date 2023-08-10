@@ -83,18 +83,6 @@ template_path=os.path.abspath(template_path)
 previous_path=args.template
 previous_path=os.path.abspath(template_path)
 
-############
-## CHEAT IN
-############
-
-file_path="to_move_all/splits/cds-255-phs002430.v1.p1-sequencefiles-p30-fy20_manifest_part2.csv"
-file_path=None
-template_path="cds_old_new_bucket_conversions.tsv"
-previous_path="md5sum_final_files/md5sum_parts/cds-255-phs002430.v1.p1-sequencefiles-p30-fy20_manifest_part2_20230726.tsv"
-directory_path='to_move_all/splits/'
-
-
-
 #Take template and create dictionary of old : new bucket pairings.
 df_temp=pd.read_csv(template_path, sep ='\t')
 bucket_dict = {}
