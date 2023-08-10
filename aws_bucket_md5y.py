@@ -62,6 +62,8 @@ parser.add_argument( '-f', '--filename', help='The AWS file CSV manifest for the
 parser.add_argument( '-d', '--directory', help='A directory of AWS file CSV manifests for the Batch Operations protocol.',default="")
 parser.add_argument( '-t', '--template', help="The translation template that notes the old and new bucket locations.\n\
                     A TSV file that has two columns, 'source_bucket' and 'destination_bucket'.", required=True)
+parser.add_argument( '-p', '--previous', help="The output file from this script from a previous run.\n\
+                    By supplying this file, you can pick up where the previous run ended.")
 
 
 argcomplete.autocomplete(parser)
@@ -75,6 +77,20 @@ directory_path=args.directory
 directory_path=os.path.abspath(directory_path)
 template_path=args.template
 template_path=os.path.abspath(template_path)
+previous_path=args.template
+previous_path=os.path.abspath(template_path)
+
+############
+## CHEAT IN
+############
+
+file_path="to_move_all/splits/cds-255-phs002430.v1.p1-sequencefiles-p30-fy20_manifest_part2.csv"
+file_path=None
+template_path="cds_old_new_bucket_conversions.tsv"
+previous_path="md5sum_final_files/md5sum_parts/cds-255-phs002430.v1.p1-sequencefiles-p30-fy20_manifest_part2_20230726.tsv"
+directory_path='to_move_all/splits/'
+
+
 
 #Take template and create dictionary of old : new bucket pairings.
 df_temp=pd.read_csv(template_path, sep ='\t')
@@ -97,6 +113,10 @@ elif directory_path:
     manifest_list=os.listdir(directory_path)
     file_dir_path= directory_path
 
+#if there is a previous template, read it in and parse for files
+if previous_path:
+    df_previous=pd.read_csv(previous_path, sep='\t')
+    old_files=df_previous['file_path'].values.tolist()
 
 # Iterate
 for manifest in manifest_list:
@@ -115,6 +135,12 @@ for manifest in manifest_list:
 
     #get a list of all files within the data frame
     file_list=df_bucket[1].unique().tolist()
+
+    #if there is a previous path provided, use it to filter out files that have been transfered.
+    if previous_path:
+        file_list = [x for x in file_list if x not in old_files]
+
+    print(len(file_list))
 
     #create an output file name based on the old bucket and today's date
     output_file=os.path.splitext(os.path.basename(file_path))[0]+"_"+todays_date
