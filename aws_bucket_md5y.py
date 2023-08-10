@@ -140,8 +140,6 @@ for manifest in manifest_list:
     if previous_path:
         file_list = [x for x in file_list if x not in old_files]
 
-    print(len(file_list))
-
     #create an output file name based on the old bucket and today's date
     output_file=os.path.splitext(os.path.basename(file_path))[0]+"_"+todays_date
 
