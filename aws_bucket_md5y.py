@@ -12,6 +12,9 @@ import os
 import hashlib
 from datetime import date
 from boto3.s3.transfer import TransferConfig
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+
+
 
 
 #obtain the date
@@ -124,6 +127,9 @@ for manifest in manifest_list:
 
     print(file_path)
 
+    #create a list of missing files
+    file_missing=[]
+
     #read in table of files
     df_bucket=pd.read_csv(file_path, header=None)
 
@@ -166,7 +172,18 @@ for manifest in manifest_list:
         file_path=f"{source_bucket}_md5sum_check/"+os.path.basename(file)
         
         # Download the file from the source bucket and find the md5sum and output
-        s3_client.download_file(source_bucket, file, file_path, Config=config)
+        try:
+            s3_client.download_file(source_bucket, file, file_path, Config=config)
+        except (NoCredentialsError, PartialCredentialsError) as e:
+            print("AWS credentials not found. Please configure your credentials.")
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                print(f"File not found in S3: {file}")
+                file_missing.append(file)
+            else:
+                print(f"An error occurred: {e}")
+                file_missing.append(file)
+
 
         #find m5sum
         source_md5sum = calculate_md5(file_path)
@@ -186,7 +203,17 @@ for manifest in manifest_list:
             file_new=file_new[1:]
 
         #Download the file from the destination bucket and find the md5sum and output
-        s3_client.download_file(destination_bucket_base, file_new, file_path, Config=config)
+        try:
+            s3_client.download_file(destination_bucket_base, file_new, file_path, Config=config)
+        except (NoCredentialsError, PartialCredentialsError) as e:
+            print("AWS credentials not found. Please configure your credentials.")
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                print(f"File not found in S3: {file}")
+                file_missing.append(file)
+            else:
+                print(f"An error occurred: {e}")
+                file_missing.append(file)
 
         #find m5sum
         destination_md5sum = calculate_md5(file_path)
@@ -208,3 +235,6 @@ for manifest in manifest_list:
     ##delete the folder
     delete_directory(f"{source_bucket}_md5sum_check")
     print(f"MD5SUM CHECK COMPLETE: {source_bucket}")
+    df_missing=pd.DataFrame({"missing_files":file_missing})
+    df_missing.to_csv(f'./{output_file}_missing.tsv', sep="\t", index=False)
+
