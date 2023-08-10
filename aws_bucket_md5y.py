@@ -80,8 +80,8 @@ directory_path=args.directory
 directory_path=os.path.abspath(directory_path)
 template_path=args.template
 template_path=os.path.abspath(template_path)
-previous_path=args.template
-previous_path=os.path.abspath(template_path)
+previous_path=args.previous
+previous_path=os.path.abspath(previous_path)
 
 #Take template and create dictionary of old : new bucket pairings.
 df_temp=pd.read_csv(template_path, sep ='\t')
