@@ -2,7 +2,6 @@
 
 # AWS Transfer of Buckets
 
-
 #List of needed packages
 import pandas as pd
 import argparse
@@ -13,9 +12,6 @@ import hashlib
 from datetime import date
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
-
-
-
 
 #obtain the date
 def refresh_date():
@@ -61,12 +57,12 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument( '-f', '--filename', help='The AWS file CSV manifest for the Batch Operations protocol.\n\
                     The structure of the AWS Batch Operations file is two columns, the first is the AWS bucket, no s3 prefix, and the second is the directory path to the file.\n\
-                    Each row requires both pieces of information for one file to be transfered.',default="")
-parser.add_argument( '-d', '--directory', help='A directory of AWS file CSV manifests for the Batch Operations protocol.',default="")
+                    Each row requires both pieces of information for one file to be transfered.',default=None)
+parser.add_argument( '-d', '--directory', help='A directory of AWS file CSV manifests for the Batch Operations protocol.',default=None)
 parser.add_argument( '-t', '--template', help="The translation template that notes the old and new bucket locations.\n\
                     A TSV file that has two columns, 'source_bucket' and 'destination_bucket'.", required=True)
 parser.add_argument( '-p', '--previous', help="The output file from this script from a previous run.\n\
-                    By supplying this file, you can pick up where the previous run ended.")
+                    By supplying this file, you can pick up where the previous run ended.", default=None)
 
 
 argcomplete.autocomplete(parser)
@@ -75,13 +71,16 @@ args = parser.parse_args()
 
 #pull in args as variables
 file_path=args.filename
-file_path=os.path.abspath(file_path)
+if file_path:
+    file_path=os.path.abspath(file_path)
 directory_path=args.directory
-directory_path=os.path.abspath(directory_path)
+if directory_path:
+    directory_path=os.path.abspath(directory_path)
 template_path=args.template
 template_path=os.path.abspath(template_path)
 previous_path=args.previous
-previous_path=os.path.abspath(previous_path)
+if previous_path:
+    previous_path=os.path.abspath(previous_path)
 
 #Take template and create dictionary of old : new bucket pairings.
 df_temp=pd.read_csv(template_path, sep ='\t')
@@ -162,6 +161,13 @@ for manifest in manifest_list:
         # Download the file from the source bucket and find the md5sum and output
         try:
             s3_client.download_file(source_bucket, file, file_path, Config=config)
+
+            #find m5sum
+            source_md5sum = calculate_md5(file_path)
+
+            #delete the file in the md5sum folder
+            delete_file(file_path)
+
         except (NoCredentialsError, PartialCredentialsError) as e:
             print("AWS credentials not found. Please configure your credentials.")
         except ClientError as e:
@@ -171,13 +177,6 @@ for manifest in manifest_list:
             else:
                 print(f"An error occurred: {e}")
                 file_missing.append(file)
-
-
-        #find m5sum
-        source_md5sum = calculate_md5(file_path)
-
-        #delete the file in the md5sum folder
-        delete_file(file_path)
 
         #Manipulate so that destination bucket is the base bucket, but add the initial sub-directory onto the file.
         #Create a destination object path based on the concatenation of the destination bucket and the existing directory for the file from the source bucket
@@ -193,6 +192,24 @@ for manifest in manifest_list:
         #Download the file from the destination bucket and find the md5sum and output
         try:
             s3_client.download_file(destination_bucket_base, file_new, file_path, Config=config)
+
+            #find m5sum
+            destination_md5sum = calculate_md5(file_path)
+
+            #delete the file in the md5sum folder
+            delete_file(file_path)
+
+            #Check to see if source and destination md5s are the same
+            if source_md5sum == destination_md5sum:
+                status="PASS"
+            else:
+                status="FAIL"
+
+            #add row to data frame
+            df_add=pd.DataFrame({'bucket':[destination_bucket],'file_path':[file],'source_md5sum':[source_md5sum],'destination_md5sum':[destination_md5sum],'status':[status]})
+            df_all=pd.concat([df_all,df_add], ignore_index=True)
+            df_all.to_csv(f'./{output_file}.tsv', sep="\t", index=False)    
+
         except (NoCredentialsError, PartialCredentialsError) as e:
             print("AWS credentials not found. Please configure your credentials.")
         except ClientError as e:
@@ -203,22 +220,6 @@ for manifest in manifest_list:
                 print(f"An error occurred: {e}")
                 file_missing.append(file)
 
-        #find m5sum
-        destination_md5sum = calculate_md5(file_path)
-
-        #Check to see if source and destination md5s are the same
-        if source_md5sum == destination_md5sum:
-            status="PASS"
-        else:
-            status="FAIL"
-
-        #add row to data frame
-        df_add=pd.DataFrame({'bucket':[destination_bucket],'file_path':[file],'source_md5sum':[source_md5sum],'destination_md5sum':[destination_md5sum],'status':[status]})
-        df_all=pd.concat([df_all,df_add], ignore_index=True)
-        df_all.to_csv(f'./{output_file}.tsv', sep="\t", index=False)
-
-        #delete the file in the md5sum folder
-        delete_file(file_path)
 
     ##delete the folder
     delete_directory(f"{source_bucket}_md5sum_check")
