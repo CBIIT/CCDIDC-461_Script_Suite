@@ -162,8 +162,10 @@ for manifest in manifest_list:
         try:
             s3_client.download_file(source_bucket, file, file_path, Config=config)
 
+            print("md5sum being calculated...")
             #find m5sum
             source_md5sum = calculate_md5(file_path)
+            print("md5sum calculated.")
 
             #delete the file in the md5sum folder
             delete_file(file_path)
@@ -193,8 +195,10 @@ for manifest in manifest_list:
         try:
             s3_client.download_file(destination_bucket_base, file_new, file_path, Config=config)
 
+            print("md5sum being calculated...")
             #find m5sum
             destination_md5sum = calculate_md5(file_path)
+            print("md5sum calculated.")
 
             #delete the file in the md5sum folder
             delete_file(file_path)
